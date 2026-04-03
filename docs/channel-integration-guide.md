@@ -4,6 +4,9 @@ This guide shows how to connect the HoptriSummit chatbot backend (`/api/chat`) t
 - Zalo Official Account (OA)
 - Facebook Messenger (Meta Page)
 
+**Live demo URL (GitHub Pages):**
+- https://paulvu.github.io/hoptrisummit-ai-pages/
+
 ---
 
 ## 1) Integration architecture
