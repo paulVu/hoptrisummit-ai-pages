@@ -17,12 +17,15 @@
 
   // ── Config from script tag ──────────────────────────────────────────
   const scriptTag = document.currentScript || document.querySelector('script[src*="chat-widget"]');
-  const SERVER = (scriptTag?.getAttribute('data-server') || '').replace(/\/$/, '') || window.location.origin;
+  const SERVER_ATTR = (scriptTag?.getAttribute('data-server') || '').trim();
+  const HAS_CUSTOM_SERVER = SERVER_ATTR.length > 0;
+  const SERVER = SERVER_ATTR.replace(/\/$/, '') || window.location.origin;
   const POSITION = scriptTag?.getAttribute('data-position') || 'right';
   const PRIMARY = scriptTag?.getAttribute('data-primary') || '#2e7d32';
   const CUSTOM_WELCOME = scriptTag?.getAttribute('data-welcome') || '';
   const SCRIPT_SRC = scriptTag?.src || '';
   const WIDGET_BASE = SCRIPT_SRC ? SCRIPT_SRC.split('/').slice(0, -1).join('/') : (SERVER + '/widget');
+  const IS_GITHUB_PAGES = /github\.io$/i.test(window.location.hostname);
 
   // ── Load CSS ────────────────────────────────────────────────────────
   const cssLink = document.createElement('link');
@@ -113,6 +116,11 @@
 
   // ── WebSocket Connection ────────────────────────────────────────────
   function connect() {
+    if (!HAS_CUSTOM_SERVER && IS_GITHUB_PAGES) {
+      addBotMessage('⚠️ Widget đang chạy trên GitHub Pages (static) nên chưa có backend WebSocket. Vui lòng set `data-server="https://your-backend-domain.com"` để kết nối chat.');
+      return;
+    }
+
     const wsUrl = SERVER.replace(/^http/, 'ws') + '/ws/chat';
     ws = new WebSocket(wsUrl);
 
