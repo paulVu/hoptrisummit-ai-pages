@@ -21,11 +21,13 @@
   const POSITION = scriptTag?.getAttribute('data-position') || 'right';
   const PRIMARY = scriptTag?.getAttribute('data-primary') || '#2e7d32';
   const CUSTOM_WELCOME = scriptTag?.getAttribute('data-welcome') || '';
+  const SCRIPT_SRC = scriptTag?.src || '';
+  const WIDGET_BASE = SCRIPT_SRC ? SCRIPT_SRC.split('/').slice(0, -1).join('/') : (SERVER + '/widget');
 
   // ── Load CSS ────────────────────────────────────────────────────────
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
-  cssLink.href = SERVER + '/widget/chat-widget.css';
+  cssLink.href = WIDGET_BASE + '/chat-widget.css';
   document.head.appendChild(cssLink);
 
   // ── Build DOM ───────────────────────────────────────────────────────
