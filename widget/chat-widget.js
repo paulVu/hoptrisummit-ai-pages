@@ -98,14 +98,28 @@
   let ws = null;
   let isOpen = false;
   let isConnected = false;
+  const conversationHistory = []; // REST mode conversation memory
+
+  // Detect mode: REST (Netlify/static with /api/chat) or WebSocket (self-hosted)
+  const USE_REST = !HAS_CUSTOM_SERVER; // same-origin = Netlify function at /api/chat
+  const API_URL = SERVER + '/api/chat';
 
   // ── Toggle Chat ─────────────────────────────────────────────────────
   launcher.addEventListener('click', () => {
     isOpen = !isOpen;
     chat.classList.toggle('hts-open', isOpen);
     launcher.style.display = isOpen ? 'none' : 'flex';
-    if (isOpen && !ws) connect();
-    if (isOpen) input.focus();
+    if (isOpen) {
+      if (USE_REST) {
+        if (!isConnected) {
+          isConnected = true;
+          addBotMessage(CUSTOM_WELCOME || 'Xin chào! Em là Trí, trợ lý AI của Hợp Trí Summit. Em có thể giúp gì cho anh/chị hôm nay ạ? 🌱');
+        }
+      } else if (!ws) {
+        connect();
+      }
+      input.focus();
+    }
   });
 
   closeBtn.addEventListener('click', () => {
@@ -114,19 +128,14 @@
     launcher.style.display = 'flex';
   });
 
-  // ── WebSocket Connection ────────────────────────────────────────────
+  // ── WebSocket Connection (self-hosted mode) ─────────────────────────
   function connect() {
-    if (!HAS_CUSTOM_SERVER && IS_STATIC_HOST) {
-      addBotMessage('⚠️ Widget đang chạy trên GitHub Pages (static) nên chưa có backend WebSocket. Vui lòng set `data-server="https://your-backend-domain.com"` để kết nối chat.');
-      return;
-    }
-
     const wsUrl = SERVER.replace(/^http/, 'ws') + '/ws/chat';
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       isConnected = true;
-      console.log('[hts-widget] Connected');
+      console.log('[hts-widget] Connected via WebSocket');
     };
 
     ws.onmessage = (event) => {
@@ -138,7 +147,6 @@
       isConnected = false;
       ws = null;
       console.log('[hts-widget] Disconnected');
-      // Auto-reconnect after 3s if chat is still open
       if (isOpen) setTimeout(connect, 3000);
     };
 
@@ -147,7 +155,7 @@
     };
   }
 
-  // ── Handle Incoming Messages ────────────────────────────────────────
+  // ── Handle Incoming Messages (WebSocket mode) ───────────────────────
   function handleMessage(data) {
     switch (data.type) {
       case 'connected':
@@ -222,10 +230,43 @@
     if (!text || !isConnected) return;
 
     addUserMessage(text);
-    ws.send(JSON.stringify({ type: 'message', content: text }));
     input.value = '';
     autoResize();
     input.focus();
+
+    if (USE_REST) {
+      sendREST(text);
+    } else {
+      ws.send(JSON.stringify({ type: 'message', content: text }));
+    }
+  }
+
+  // ── REST mode send (Netlify Functions) ──────────────────────────────
+  async function sendREST(text) {
+    showTyping();
+    conversationHistory.push({ role: 'user', content: text });
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: conversationHistory.slice(-8),
+        }),
+      });
+
+      const data = await res.json();
+      removeTyping();
+
+      const reply = data.reply || 'Xin lỗi, em gặp sự cố. Vui lòng thử lại.';
+      conversationHistory.push({ role: 'assistant', content: reply });
+      addBotMessage(reply, data.citations);
+    } catch (err) {
+      console.error('[hts-widget] REST error:', err);
+      removeTyping();
+      addBotMessage('⚠️ Không thể kết nối. Vui lòng thử lại sau.');
+    }
   }
 
   sendBtn.addEventListener('click', sendMessage);
